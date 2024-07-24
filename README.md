@@ -8,6 +8,10 @@ Step2:
 
 Preparing training and validation set
 
+```
+python split_ara_data.py
+```
+
 
 
 
