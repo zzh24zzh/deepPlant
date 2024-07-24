@@ -2,7 +2,8 @@
 
 ### Step1:
 
-Expression data download and processing
+Expression data download and processing, follow the steps in notebooks  
+[processing.ipynb](https://github.com/zzh24zzh/deepPlant/blob/main/processing.ipynb)
 
 
 ### Step2:
