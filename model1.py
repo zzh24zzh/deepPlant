@@ -104,22 +104,22 @@ class ConvNet(nn.Module):
             nn.BatchNorm1d(960),
             nn.Dropout(p=0.2),
         )
-        self.dconv3 = nn.Sequential(
-            nn.Conv1d(960, 480, kernel_size=5, dilation=8, padding=16, bias=False),
-            nn.BatchNorm1d(480),
-            nn.GELU(),
-            nn.Conv1d(480, 960, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(960),
-            nn.Dropout(p=0.2),
-        )
-        self.dconv4 = nn.Sequential(
-            nn.Conv1d(960, 480, kernel_size=5, dilation=16, padding=32, bias=False),
-            nn.BatchNorm1d(480),
-            nn.GELU(),
-            nn.Conv1d(480, 960, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(960),
-            nn.Dropout(p=0.2),
-        )
+        # self.dconv3 = nn.Sequential(
+        #     nn.Conv1d(960, 480, kernel_size=5, dilation=8, padding=16, bias=False),
+        #     nn.BatchNorm1d(480),
+        #     nn.GELU(),
+        #     nn.Conv1d(480, 960, kernel_size=3, padding=1, bias=False),
+        #     nn.BatchNorm1d(960),
+        #     nn.Dropout(p=0.2),
+        # )
+        # self.dconv4 = nn.Sequential(
+        #     nn.Conv1d(960, 480, kernel_size=5, dilation=16, padding=32, bias=False),
+        #     nn.BatchNorm1d(480),
+        #     nn.GELU(),
+        #     nn.Conv1d(480, 960, kernel_size=3, padding=1, bias=False),
+        #     nn.BatchNorm1d(960),
+        #     nn.Dropout(p=0.2),
+        # )
         self.gelu = nn.GELU()
         self.classifier = finetuneblock(
             input_channels=960,
@@ -133,9 +133,10 @@ class ConvNet(nn.Module):
         output1 = self.lconv_network(input)
         output2 = self.dconv1(output1)
         output3 = self.dconv2(self.gelu(output2 + output1))
-        output4 = self.dconv3(self.gelu(output3 + output2))
-        output5 = self.dconv4(self.gelu(output4 + output3))
-        output = self.classifier(self.gelu(output5 + output4))
+        output = self.classifier(self.gelu(output2 + output3))
+        # output4 = self.dconv3(self.gelu(output3 + output2))
+        # output5 = self.dconv4(self.gelu(output4 + output3))
+        # output = self.classifier(self.gelu(output5 + output4))
         return output
 
 

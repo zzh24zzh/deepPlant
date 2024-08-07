@@ -28,7 +28,8 @@ def parser_args():
     parser.add_argument('--epochs', default=10, type=int,help='number of epochs')
     parser.add_argument('--lr', default=5e-4, type=float,help='learning rate')
     parser.add_argument('--bs', type=int, default=32, help='batch size')
-    parser.add_argument('--seqLen', default=10000, type=int, help='The length of the input sequence, which should be an even number')
+    parser.add_argument('--log1p', default=True, action='store_false')
+    parser.add_argument('--seqLen', default=2000, type=int, help='The length of the input sequence, which should be an even number')
 
     args = parser.parse_args()
     return args
@@ -111,7 +112,7 @@ def main():
         os.mkdir(os.path.join(data_cache_dir, 'logging'))
         # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         # log_file_name = f"train_{timestamp}.log"
-    logging.basicConfig(filename=os.path.join(data_cache_dir, 'logging', 'train.log'), level=logging.INFO,
+    logging.basicConfig(filename=os.path.join(data_cache_dir, 'logging', f'train_{args.seqLen}_{args.log1p}.log'), level=logging.INFO,
                         format='%(asctime)s:%(levelname)s:%(message)s')
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -136,6 +137,9 @@ def main():
 
     expression_file=h5py.File(os.path.join(data_cache_dir,'arabidopsis_expression_data.h5'))
     targ_exression_matrix= np.array(expression_file['FPKM_matrix'])
+    if args.log1p:
+        targ_exression_matrix=np.log1p(targ_exression_matrix)
+
     gene_label_names= expression_file['chrom_geneid'][:,1].astype('str')
     gene_names_indices_dict={}
     for idx,n in enumerate(gene_label_names):
@@ -214,9 +218,11 @@ def main():
         adjust_learning_rate(optimizer, epoch)
 
         for chunki in range(0, len(train_sets),args.bs):
+
             data_chunk= train_sets[chunki: chunki+args.bs]
             bsInput,bsTarget=prepare_inputs(data_chunk)
-
+            if epoch==0 and chunki==0:
+                print(f'input size: {bsInput.shape}')
             bsOut=model(bsInput)
             loss=criterion(bsOut,bsTarget)
 
