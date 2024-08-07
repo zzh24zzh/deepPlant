@@ -1,6 +1,6 @@
 import torch
 import collections
-from model import build_ConvNet
+from model1 import build_ConvNet
 import h5py
 import argparse,os
 import numpy as np
@@ -26,9 +26,8 @@ def parser_args():
     parser.add_argument('--model_path', default=None, type=str,
                         help='The model checkpoint for initialization')
     parser.add_argument('--epochs', default=10, type=int,help='number of epochs')
-    parser.add_argument('--lr', default=5e-4, type=float,help='learning rate')
+    parser.add_argument('--lr', default=1e-3, type=float,help='learning rate')
     parser.add_argument('--bs', type=int, default=32, help='batch size')
-    parser.add_argument('--pool', type=str, default='bin',choices=['bin','mean'])
     parser.add_argument('--log1p', default=True, action='store_false')
     parser.add_argument('--seqLen', default=2000, type=int, help='The length of the input sequence, which should be divisible by 100')
 
@@ -101,8 +100,9 @@ def shuffleData(data):
 def main():
     args =get_args()
 
-    if args.seqLen % 100:
+    if args.seqLen%100:
         raise ValueError('The input length is not divisible by 100.')
+
 
     data_cache_dir=os.path.abspath(args.data_cache_dir)
     if not os.path.exists(args.model_cache_dir):
@@ -113,16 +113,11 @@ def main():
         os.mkdir(os.path.join(data_cache_dir, 'logging'))
         # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         # log_file_name = f"train_{timestamp}.log"
-    logging.basicConfig(filename=os.path.join(data_cache_dir, 'logging', f'train1_{args.seqLen}_{args.log1p}_pool-{args.pool}.log'), level=logging.INFO,
+    logging.basicConfig(filename=os.path.join(data_cache_dir, 'logging', f'train_{args.seqLen}_{args.log1p}.log'), level=logging.INFO,
                         format='%(asctime)s:%(levelname)s:%(message)s')
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Using {device}...')
-
-    if args.pool=='bin':
-        if not args.seqLen//100%2:
-            args.seqLen+=100
-            logging.info(f'To center the TSS in the centered 100bp bin, the input length now is {args.seqLen}bp \n')
 
 
 
