@@ -2,7 +2,7 @@
 
 ### Step1:
 
-Expression data download and processing, follow the steps in notebooks  
+Expression data download and processing, follow the steps in notebooks  [data_download_mergeRep.ipynb](https://github.com/zzh24zzh/deepPlant/blob/main/data_download_mergeRep.ipynb) and 
 [processing.ipynb](https://github.com/zzh24zzh/deepPlant/blob/main/processing.ipynb)
 
 
