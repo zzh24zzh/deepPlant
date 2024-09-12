@@ -1,7 +1,9 @@
 import torch.nn as nn
 from typing import Optional
 import torch
-from typing import Literal
+from typing import Literal, Dict
+import json
+import os
 # from src.seed import set_seed
 
 # set_seed()
@@ -52,7 +54,7 @@ class finetuneblock(nn.Module):
         assert pool in ['mean','bin']
         x = self.project(input)
         x = x.permute(0, 2, 1)
-        x_rnn, (h_n,c_n)=self.gru(x)
+        x_rnn, hn=self.gru(x)
         x_rnn = self.linear(x_rnn)
         x=x+x_rnn
         if TSSbinIdx is None:
@@ -65,91 +67,132 @@ class finetuneblock(nn.Module):
 
 
 class ConvNet(nn.Module):
-    def __init__(self, n_features: int):
+    def __init__(self, pre_trained_model_config: Dict[str, int],output_dim):
         super(ConvNet, self).__init__()
-        self.n_features = n_features
+        self.n_filters = pre_trained_model_config["n_filters"]
+        self.embed_dim = pre_trained_model_config["embed_dim"]
+        self.kernel_size = pre_trained_model_config["kernel_size"]
+        self.feedforward_dim = pre_trained_model_config["feedforward_dim"]
         self.lconv_network = nn.Sequential(
-            nn.Conv1d(4, 480, kernel_size=11, padding=5),
-            nn.Conv1d(480, 480, kernel_size=7, padding=3),
-            nn.GELU(),
+            nn.Conv1d(4, 3 * self.n_filters, kernel_size=11, padding=5),
+            nn.Conv1d(
+                3 * self.n_filters, 3 * self.n_filters, kernel_size=11, padding=5
+            ),
+            nn.ReLU(),
             nn.MaxPool1d(kernel_size=5, stride=5),
-            nn.Conv1d(480, 640, kernel_size=5, padding=2, bias=False),
-            nn.BatchNorm1d(640),
-            nn.GELU(),
+            nn.Conv1d(
+                3 * self.n_filters,
+                4 * self.n_filters,
+                kernel_size=9,
+                padding=4,
+                bias=False,
+            ),
+            nn.BatchNorm1d(4 * self.n_filters),
+            nn.ReLU(),
             nn.Dropout(p=0.1),
-            nn.Conv1d(640, 640, kernel_size=7, padding=3),
-            nn.GELU(),
+            nn.Conv1d(4 * self.n_filters, 4 * self.n_filters, kernel_size=9, padding=4),
+            nn.ReLU(),
             nn.MaxPool1d(kernel_size=5, stride=5),
-            nn.Conv1d(640, 720, kernel_size=5, padding=2, bias=False),
-            nn.BatchNorm1d(720),
-            nn.GELU(),
+            nn.Conv1d(
+                4 * self.n_filters,
+                5 * self.n_filters,
+                kernel_size=7,
+                padding=3,
+                bias=False,
+            ),
+            nn.BatchNorm1d(5 * self.n_filters),
+            nn.ReLU(),
             nn.Dropout(p=0.1),
-            nn.Conv1d(720, 720, kernel_size=7, padding=3),
-            nn.GELU(),
-            nn.MaxPool1d(kernel_size=4, stride=4),
-            nn.Conv1d(720, 960, kernel_size=5, padding=2, bias=False),
-            nn.BatchNorm1d(960),
-            nn.GELU(),
-            nn.Dropout(p=0.2),
+            nn.Conv1d(5 * self.n_filters, 5 * self.n_filters, kernel_size=7, padding=3),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
+            nn.Conv1d(
+                5 * self.n_filters,
+                6 * self.n_filters,
+                kernel_size=5,
+                padding=2,
+                bias=False,
+            ),
+            nn.BatchNorm1d(6 * self.n_filters),
+            nn.ReLU(),
+            nn.Dropout(p=0.1),
+            nn.Conv1d(6 * self.n_filters, 6 * self.n_filters, kernel_size=5, padding=2),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2, stride=2),
         )
         self.dconv1 = nn.Sequential(
-            nn.Conv1d(960, 480, kernel_size=5, dilation=2, padding=4, bias=False),
-            nn.BatchNorm1d(480),
+            nn.Conv1d(
+                6 * self.n_filters,
+                4 * self.n_filters,
+                kernel_size=5,
+                dilation=2,
+                padding=4,
+                bias=False,
+            ),
+            nn.BatchNorm1d(4 * self.n_filters),
             nn.GELU(),
-            nn.Conv1d(480, 960, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(960),
-            nn.Dropout(p=0.2),
+            nn.Conv1d(
+                4 * self.n_filters,
+                6 * self.n_filters,
+                kernel_size=5,
+                padding=2,
+                bias=False,
+            ),
+            nn.BatchNorm1d(6 * self.n_filters),
+            nn.Dropout(p=0.1),
         )
         self.dconv2 = nn.Sequential(
-            nn.Conv1d(960, 480, kernel_size=5, dilation=4, padding=8, bias=False),
-            nn.BatchNorm1d(480),
+            nn.Conv1d(
+                6 * self.n_filters,
+                4 * self.n_filters,
+                kernel_size=5,
+                dilation=4,
+                padding=8,
+                bias=False,
+            ),
+            nn.BatchNorm1d(4 * self.n_filters),
             nn.GELU(),
-            nn.Conv1d(480, 960, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm1d(960),
+            nn.Conv1d(
+                4 * self.n_filters,
+                6 * self.n_filters,
+                kernel_size=5,
+                padding=2,
+                bias=False,
+            ),
+            nn.BatchNorm1d(6 * self.n_filters),
             nn.Dropout(p=0.2),
         )
-        # self.dconv3 = nn.Sequential(
-        #     nn.Conv1d(960, 480, kernel_size=5, dilation=8, padding=16, bias=False),
-        #     nn.BatchNorm1d(480),
-        #     nn.GELU(),
-        #     nn.Conv1d(480, 960, kernel_size=3, padding=1, bias=False),
-        #     nn.BatchNorm1d(960),
-        #     nn.Dropout(p=0.2),
-        # )
-        # self.dconv4 = nn.Sequential(
-        #     nn.Conv1d(960, 480, kernel_size=5, dilation=16, padding=32, bias=False),
-        #     nn.BatchNorm1d(480),
-        #     nn.GELU(),
-        #     nn.Conv1d(480, 960, kernel_size=3, padding=1, bias=False),
-        #     nn.BatchNorm1d(960),
-        #     nn.Dropout(p=0.2),
-        # )
+
         self.gelu = nn.GELU()
-        self.classifier = finetuneblock(
-            input_channels=960,
-            embed_dim=1280,
-            feedforward_dim=2048,
-            output_dim=self.n_features,
+        self.head = finetuneblock(
+            input_channels=6 * self.n_filters,
+            embed_dim=self.embed_dim,
+            feedforward_dim=self.feedforward_dim,
+            output_dim=output_dim,
         )
 
     def forward(self, input: torch.Tensor):
         output1 = self.lconv_network(input)
         output2 = self.dconv1(output1)
         output3 = self.dconv2(self.gelu(output2 + output1))
-        output = self.classifier(output3)
-
-        # output4 = self.dconv3(self.gelu(output3 + output2))
-        # output5 = self.dconv4(self.gelu(output4 + output3))
-        # output = self.classifier(self.gelu(output5 + output4))
+        output = self.head(self.gelu(output2 + output3))
         return output
 
 
-def build_ConvNet(
-    n_features: int,
-    model_path: Optional[str] = None,
-):
-    net = ConvNet(n_features=n_features)
-    if model_path != None:
-        print("Loading model state")
-        net.load_state_dict(torch.load(model_path, map_location=torch.device("cpu")))
+
+def build_ConvNet(args,output_dim):
+    assert args.config_path!=None
+
+    if not os.path.exists(args.config_path):
+        args.config_path=os.path.join(args.model_cache_dir, args.config_path)
+
+    with open(args.config_path, 'r') as file:
+        config= json.load(file)
+
+    net = ConvNet(config['model_architecture'],output_dim)
+    if args.pretrained_model_path != None:
+        if not os.path.exists(args.pretrained_model_path):
+            args.pretrained_model_path=os.path.join(args.model_cache_dir, args.pretrained_model_path)
+        print("="*10+"Loading pretrained checkpoint"+"="*10)
+        net.load_state_dict(torch.load(args.pretrained_model_path, map_location=torch.device("cpu")),strict=False)
     return net

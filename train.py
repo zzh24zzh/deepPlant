@@ -23,9 +23,11 @@ def parser_args():
         required=True,
         help='The directory where the model will be saved'
     )
-    parser.add_argument('--model_path', default=None, type=str,
+    parser.add_argument('--pretrained_model_path', default=None, type=str,
                         help='The model checkpoint for initialization')
-    parser.add_argument('--epochs', default=10, type=int,help='number of epochs')
+    parser.add_argument('--config_path', default=None, type=str,
+                        help='The model checkpoint for initialization')
+    parser.add_argument('--epochs', default=15, type=int,help='number of epochs')
     parser.add_argument('--lr', default=5e-4, type=float,help='learning rate')
     parser.add_argument('--bs', type=int, default=32, help='batch size')
     parser.add_argument('--pool', type=str, default='bin',choices=['bin','mean'])
@@ -107,20 +109,20 @@ def main():
     data_cache_dir=os.path.abspath(args.data_cache_dir)
     if not os.path.exists(args.model_cache_dir):
         os.mkdir(args.model_cache_dir)
-    model_cache_dir = os.path.abspath(args.model_cache_dir)
+    args.model_cache_dir = os.path.abspath(args.model_cache_dir)
 
     if not os.path.isdir(os.path.join(data_cache_dir, 'logging')):
         os.mkdir(os.path.join(data_cache_dir, 'logging'))
         # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         # log_file_name = f"train_{timestamp}.log"
-    logging.basicConfig(filename=os.path.join(data_cache_dir, 'logging', f'train1_{args.seqLen}_{args.log1p}_pool-{args.pool}.log'), level=logging.INFO,
+    logging.basicConfig(filename=os.path.join(data_cache_dir, 'logging', f'train_{args.seqLen}_{args.log1p}_pool-{args.pool}.log'), level=logging.INFO,
                         format='%(asctime)s:%(levelname)s:%(message)s')
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Using {device}...')
 
     if args.pool=='bin':
-        if not args.seqLen//100%2:
+        if not args.seqLen //100 % 2:
             args.seqLen+=100
             logging.info(f'To center the TSS in the centered 100bp bin, the input length now is {args.seqLen}bp \n')
 
@@ -152,7 +154,7 @@ def main():
     for idx,n in enumerate(gene_label_names):
         gene_names_indices_dict[n]=idx
 
-    model=build_ConvNet(n_features=targ_exression_matrix.shape[-1],model_path=args.model_path)
+    model=build_ConvNet(args,output_dim=targ_exression_matrix.shape[-1])
     model.to(device)
 
     criterion=torch.nn.MSELoss()
@@ -253,13 +255,14 @@ def main():
             vtargs.append(bsTarget.cpu().data.detach().numpy())
         vpres=np.vstack(vpreds)
         vtargs=np.vstack(vtargs)
-        validScore=pearsonr(vpres.flatten(),vtargs.flatten())[0]
+        validScore=np.nanmean([pearsonr(vpres[i],vtargs[i])[0] for i in range(vpres.shape[0])])
+
         logging.info(f'Epoch: {epoch}, Valid Pearson: {validScore} \n')
 
         if validScore>bestScore:
             bestScore=validScore
             logging.info('Save model ... \n')
-            torch.save(model.state_dict(),os.path.join(model_cache_dir,'ara.pt'))
+            torch.save(model.state_dict(),os.path.join(args.model_cache_dir,'ara.pt'))
 
         vpreds, vtargs = [], []
         for chunki in range(0, len(test_sets), args.bs):
@@ -272,14 +275,14 @@ def main():
             vtargs.append(bsTarget.cpu().data.detach().numpy())
         vpres = np.vstack(vpreds)
         vtargs = np.vstack(vtargs)
-        testScore = pearsonr(vpres.flatten(), vtargs.flatten())[0]
+        testScore = np.nanmean([pearsonr(vpres[i],vtargs[i])[0] for i in range(vpres.shape[0])])
         logging.info(f'Epoch: {epoch}, Test Pearson: {testScore} \n')
 
         resultPath=os.path.join(data_cache_dir,'results')
         if not os.path.exists(resultPath):
             os.mkdir(resultPath)
-        np.save(os.path.join(data_cache_dir,'results','ara_pred.npy') ,vpres)
-        np.save(os.path.join(data_cache_dir, 'results', 'ara_targ.npy'), vtargs)
+        np.save(os.path.join(data_cache_dir,'results',f'ara_pred_{args.seqLen}_{args.pool}.npy') ,vpres)
+        np.save(os.path.join(data_cache_dir, 'results', f'ara_targ_{args.seqLen}_{args.pool}.npy'), vtargs)
 
 
 
