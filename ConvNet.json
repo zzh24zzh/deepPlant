@@ -1,0 +1,28 @@
+{
+    "data_path": "data",
+    "results_path": "results/results_ConvNet",
+    "optimizer_type": "adamw",
+    "weight_decay": 0.01,
+    "momentum": 0.95,
+    "max_epochs": 50,
+    "warmup_steps": 5,
+    "warmup_begin_lr": 0.0001,
+    "max_lr": 0.0005,
+    "final_lr": 0.00001,
+    "use_scheduler": true,
+    "lazy_loading": true,
+    "batch_size": 256,
+    "counter_for_early_stop_threshold": 15,
+    "epochs_to_check_loss": 1,
+    "batch_accumulation": false,
+    "n_accumulated_batches": 1,
+    "use_reverse_complement": false,
+    "model_architecture":
+    {
+    "n_filters": 160,
+    "kernel_size": 5,
+    "embed_dim": 2048,
+    "feedforward_dim": 4096,
+    "n_features": 3184
+    }
+}
